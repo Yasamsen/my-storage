@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="app-layout" id="app">
+    <div class="main-content">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+        <div class="topbar-actions" style="margin-left:auto">
+          <button class="btn btn-ghost btn-icon" id="themeToggle" aria-label="Theme">🌙</button>
+        </div>
+      </header>
+
+      <div class="page-body" style="max-width:640px">
+        <div class="page-header">
+          <h1 class="page-title">Settings</h1>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="font-semibold mb-4">Profile</h3>
+          <div class="form-group">
+            <label class="form-label" for="username">Username</label>
+            <input class="form-input" id="username" type="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-input" id="email" type="email" disabled />
+          </div>
+          <button class="btn btn-primary" id="saveProfile">Save Profile</button>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="font-semibold mb-4">Security</h3>
+          <div class="form-group">
+            <label class="form-label" for="currentPassword">Current Password</label>
+            <input class="form-input" id="currentPassword" type="password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newPassword">New Password</label>
+            <input class="form-input" id="newPassword" type="password" minlength="8" />
+          </div>
+          <button class="btn btn-secondary" id="changePassword">Change Password</button>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="font-semibold mb-4">Appearance</h3>
+          <div class="form-group">
+            <label class="form-label" for="themeSelect">Theme</label>
+            <select class="form-input" id="themeSelect">
+              <option value="light">☀ Light</option>
+              <option value="dark">🌙 Dark</option>
+              <option value="system">💻 System</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="font-semibold mb-4">Storage</h3>
+          <div id="storageInfo">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script>
+    document.getElementById('app').insertAdjacentHTML('afterbegin', sidebarHTML());
+
+    (async () => {
+      const user = await initShell('settings');
+      if (!user) return;
+
+      document.getElementById('username').value = user.username;
+      document.getElementById('email').value = user.email;
+      document.getElementById('themeSelect').value = user.theme || localStorage.getItem('theme') || 'system';
+
+      document.getElementById('saveProfile').addEventListener('click', async () => {
+        try {
+          await API.patch('/api/user/profile', {
+            username: document.getElementById('username').value.trim()
+          });
+          showToast('Profile updated', 'success');
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('changePassword').addEventListener('click', async () => {
+        try {
+          await API.post('/api/user/profile/change-password', {
+            currentPassword: document.getElementById('currentPassword').value,
+            newPassword: document.getElementById('newPassword').value
+          });
+          showToast('Password changed', 'success');
+          document.getElementById('currentPassword').value = '';
+          document.getElementById('newPassword').value = '';
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('themeSelect').addEventListener('change', async (e) => {
+        applyTheme(e.target.value);
+        try {
+          await API.patch('/api/user/profile', { theme: e.target.value });
+        } catch {}
+        document.getElementById('themeToggle').textContent =
+          document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '🌙';
+      });
+
+      try {
+        const res = await API.get('/api/storage');
+        const d = res.data;
+        const cats = d.byCategory || {};
+        document.getElementById('storageInfo').innerHTML = `
+          <p class="mb-2"><strong>${formatBytes(d.used)}</strong> used of <strong>${formatBytes(d.limit)}</strong> (${d.percent}%)</p>
+          <div class="progress mb-4"><div class="progress-bar ${d.percent>=90?'danger':d.percent>=75?'warning':''}" style="width:${d.percent}%"></div></div>
+          <div class="text-sm text-secondary">
+            <div class="flex justify-between mb-2"><span>Images</span><span>${formatBytes(cats.image||0)}</span></div>
+            <div class="flex justify-between mb-2"><span>Videos</span><span>${formatBytes(cats.video||0)}</span></div>
+            <div class="flex justify-between mb-2"><span>Documents</span><span>${formatBytes(cats.document||0)}</span></div>
+            <div class="flex justify-between mb-2"><span>Audio</span><span>${formatBytes(cats.audio||0)}</span></div>
+            <div class="flex justify-between mb-2"><span>Archives</span><span>${formatBytes(cats.archive||0)}</span></div>
+            <div class="flex justify-between"><span>Other</span><span>${formatBytes(cats.other||0)}</span></div>
+          </div>
+        `;
+      } catch {}
+    })();
+  </script>
+</body>
+</html>
