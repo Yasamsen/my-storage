@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyStorage – Your personal cloud storage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+</head>
+<body>
+  <nav class="landing-nav">
+    <a href="/" class="sidebar-brand" style="padding:0">
+      <span class="logo">☁</span> MyStorage
+    </a>
+    <div class="flex gap-2 items-center">
+      <button class="btn btn-ghost btn-sm" id="themeToggle" aria-label="Toggle theme">🌙</button>
+      <a href="/login" class="btn btn-secondary btn-sm">Login</a>
+      <a href="/register" class="btn btn-primary btn-sm">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="landing-hero">
+    <h1>MyStorage</h1>
+    <p class="tagline">Your personal cloud storage.</p>
+    <p class="sub">Store, manage and access your files anywhere.</p>
+    <div class="landing-cta">
+      <a href="/register" class="btn btn-primary btn-lg">Get Started</a>
+      <a href="/login" class="btn btn-secondary btn-lg">Login</a>
+    </div>
+  </section>
+
+  <div class="landing-mockup">
+    <div class="landing-mockup-inner" aria-hidden="true">
+      <div class="mock-sidebar">
+        <div class="mock-bar" style="width:70%;margin-bottom:1.5rem"></div>
+        <div class="mock-bar" style="width:90%"></div>
+        <div class="mock-bar" style="width:80%"></div>
+        <div class="mock-bar" style="width:85%"></div>
+        <div class="mock-bar" style="width:60%;margin-top:1.5rem"></div>
+        <div class="mock-bar" style="width:75%"></div>
+      </div>
+      <div class="mock-main">
+        <div class="mock-bar" style="width:40%;height:16px;margin-bottom:1.5rem"></div>
+        <div style="display:flex;gap:12px;margin-bottom:1rem">
+          <div class="mock-bar" style="width:100px;height:28px;border-radius:8px"></div>
+          <div class="mock-bar" style="width:80px;height:28px;border-radius:8px"></div>
+        </div>
+        <div class="mock-grid">
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+          <div class="mock-card"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="features-section">
+    <h2>Everything you need</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="ficon">🔒</div>
+        <h3>Secure Storage</h3>
+        <p>Your files are private. Only you can access them unless you share a link.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ficon">⚡</div>
+        <h3>Fast Upload</h3>
+        <p>Upload multiple files at once with real-time progress tracking.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ficon">👁️</div>
+        <h3>File Preview</h3>
+        <p>Preview images, videos, audio, PDFs and text without downloading.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ficon">🔗</div>
+        <h3>Easy Sharing</h3>
+        <p>Create share links with optional expiration and download permissions.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ficon">📱</div>
+        <h3>Access Anywhere</h3>
+        <p>Works on desktop, tablet and phone. Responsive and fast.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ficon">📁</div>
+        <h3>Organized Folders</h3>
+        <p>Create folders, move files, search and keep everything tidy.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <p>MyStorage — Personal cloud storage</p>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+      document.getElementById('themeToggle').textContent =
+        document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '🌙';
+    });
+    getCurrentUser().then(u => { if (u) location.href = '/dashboard'; });
+  </script>
+</body>
+</html>
