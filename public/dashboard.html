@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="app-layout" id="app">
+    <!-- sidebar injected -->
+    <div class="main-content">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+        <div class="topbar-search">
+          <span class="search-icon">🔎</span>
+          <input type="search" placeholder="Search files..." id="globalSearch" />
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-icon" id="themeToggle" aria-label="Theme">🌙</button>
+          <button class="btn btn-primary btn-sm" onclick="openFilePicker(null)">+ Upload</button>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title" data-greeting>Dashboard</h1>
+            <p class="page-subtitle">Overview of your storage</p>
+          </div>
+          <button class="btn btn-primary" onclick="openFilePicker(null)">+ Upload</button>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-label">Storage</div>
+            <div class="stat-value" id="statStorage">—</div>
+            <div class="progress mt-2"><div class="progress-bar" id="statBar" style="width:0%"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Files</div>
+            <div class="stat-value" id="statFiles">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Folders</div>
+            <div class="stat-value" id="statFolders">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Shared</div>
+            <div class="stat-value" id="statShared">—</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem" class="dash-cols">
+          <div class="card">
+            <h3 class="font-semibold mb-4">Recent Files</h3>
+            <div id="recentFiles">
+              <div class="empty-state" style="padding:1.5rem"><div class="spinner" style="margin:0 auto"></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="font-semibold mb-4">Recent Activity</h3>
+            <ul class="activity-list" id="activityList">
+              <li class="empty-state" style="padding:1.5rem"><div class="spinner" style="margin:0 auto"></div></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/upload.js"></script>
+  <script>
+    document.getElementById('app').insertAdjacentHTML('afterbegin', sidebarHTML());
+
+    (async () => {
+      await initShell('dashboard');
+
+      // Storage stats
+      try {
+        const res = await API.get('/api/storage');
+        const d = res.data;
+        document.getElementById('statStorage').textContent =
+          formatBytes(d.used) + ' / ' + formatBytes(d.limit);
+        const bar = document.getElementById('statBar');
+        bar.style.width = d.percent + '%';
+        if (d.percent >= 90) bar.classList.add('danger');
+        else if (d.percent >= 75) bar.classList.add('warning');
+        document.getElementById('statFiles').textContent = d.fileCount;
+        document.getElementById('statFolders').textContent = d.folderCount;
+        document.getElementById('statShared').textContent = d.sharedCount;
+        if (d.percent >= 90) {
+          showToast('Storage almost full — you are using ' + d.percent + '% of your storage.', 'warning');
+        }
+      } catch {}
+
+      // Recent files
+      try {
+        const res = await API.get('/api/files?sort=newest&limit=8');
+        const files = res.data.files || [];
+        const el = document.getElementById('recentFiles');
+        if (!files.length) {
+          el.innerHTML = '<div class="empty-state" style="padding:1rem"><p>No files yet</p><button class="btn btn-primary btn-sm" onclick="openFilePicker(null)">+ Upload File</button></div>';
+        } else {
+          el.innerHTML = files.map(f => `
+            <div class="flex items-center gap-3" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer"
+                 onclick="location.href='/preview?id=${f.id}'">
+              <div class="file-icon">${categoryIcon(f.category, f.extension)}</div>
+              <div style="flex:1;min-width:0">
+                <div class="truncate font-medium text-sm">${escapeHtml(f.name)}</div>
+                <div class="text-xs text-muted">${formatBytes(f.size)} · ${formatDate(f.createdAt)}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch {}
+
+      // Activity
+      try {
+        const res = await API.get('/api/activity?limit=10');
+        const items = res.data || [];
+        const el = document.getElementById('activityList');
+        const labels = {
+          upload: 'uploaded', download: 'downloaded', delete: 'deleted',
+          restore: 'restored', rename: 'renamed', move: 'moved',
+          create_folder: 'created folder', delete_folder: 'deleted folder',
+          share: 'shared', revoke_share: 'revoked share'
+        };
+        if (!items.length) {
+          el.innerHTML = '<li class="text-secondary text-sm" style="padding:1rem">No activity yet</li>';
+        } else {
+          el.innerHTML = items.map(a => `
+            <li class="activity-item">
+              <div class="activity-icon">📌</div>
+              <div class="activity-text">
+                You ${labels[a.action] || a.action} <strong>${escapeHtml(a.targetName || '')}</strong>
+                <div class="activity-time">${formatDate(a.createdAt)}</div>
+              </div>
+            </li>
+          `).join('');
+        }
+      } catch {}
+
+      document.getElementById('globalSearch').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const q = e.target.value.trim();
+          if (q) location.href = '/files?search=' + encodeURIComponent(q);
+        }
+      });
+
+      window.onUploadComplete = () => location.reload();
+    })();
+  </script>
+  <style>
+    @media (max-width: 800px) {
+      .dash-cols { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</body>
+</html>
