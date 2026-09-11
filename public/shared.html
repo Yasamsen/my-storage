@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shared File – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card" style="max-width:480px;text-align:center">
+      <div class="auth-logo">☁ MyStorage</div>
+      <div id="shareContent">
+        <div class="spinner" style="margin:2rem auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    (async () => {
+      const parts = location.pathname.split('/');
+      const token = parts[parts.length - 1];
+      const el = document.getElementById('shareContent');
+
+      try {
+        const res = await API.get('/api/share/' + token);
+        const f = res.data;
+        document.title = f.name + ' – Shared · MyStorage';
+
+        let preview = '';
+        const streamUrl = '/api/share/' + token + '/stream';
+        if (f.category === 'image') {
+          preview = '<img src="' + streamUrl + '" alt="" style="max-height:280px;margin:1rem auto;border-radius:8px" />';
+        } else if (f.category === 'video') {
+          preview = '<video controls src="' + streamUrl + '" style="max-width:100%;max-height:280px;margin:1rem auto;display:block"></video>';
+        } else if (f.category === 'audio') {
+          preview = '<audio controls src="' + streamUrl + '" style="width:100%;margin:1rem 0"></audio>';
+        } else {
+          preview = '<div style="font-size:3rem;margin:1rem 0">' + categoryIcon(f.category, f.extension) + '</div>';
+        }
+
+        el.innerHTML = `
+          ${preview}
+          <h2 style="font-size:1.2rem;margin-bottom:0.25rem">${escapeHtml(f.name)}</h2>
+          <p class="text-secondary text-sm mb-4">${(f.extension || f.category || '').toUpperCase()} · ${formatBytes(f.size)}</p>
+          <div class="flex gap-2" style="justify-content:center">
+            ${f.category === 'image' || f.category === 'video' || f.extension === 'pdf' ? '' : ''}
+            <a class="btn btn-primary" href="/api/share/${token}/download">⬇️ Download</a>
+          </div>
+          <p class="text-xs text-muted mt-4">Shared via MyStorage</p>
+        `;
+      } catch (err) {
+        el.innerHTML = `
+          <div style="font-size:3rem;margin:1rem 0">🔗</div>
+          <h2 style="margin-bottom:0.5rem">Link unavailable</h2>
+          <p class="text-secondary">${escapeHtml(err.message || 'This share link is invalid or has expired.')}</p>
+          <a href="/" class="btn btn-secondary mt-4">Go to MyStorage</a>
+        `;
+      }
+    })();
+  </script>
+</body>
+</html>
