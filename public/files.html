@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Files – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="app-layout" id="app">
+    <div class="main-content">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+        <div class="topbar-search">
+          <span class="search-icon">🔎</span>
+          <input type="search" placeholder="Search files..." id="searchInput" />
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-icon" id="themeToggle" aria-label="Theme">🌙</button>
+          <button class="btn btn-secondary btn-sm" onclick="createFolder()">+ New Folder</button>
+          <button class="btn btn-primary btn-sm" onclick="openFilePicker(state.folderId)">+ Upload</button>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="page-header">
+          <h1 class="page-title" id="pageTitle">My Files</h1>
+        </div>
+
+        <nav class="breadcrumb" id="breadcrumb"></nav>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <select class="form-input" style="width:auto;padding:7px 12px" id="sortSelect">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="largest">Largest</option>
+              <option value="smallest">Smallest</option>
+            </select>
+            <select class="form-input" style="width:auto;padding:7px 12px" id="filterSelect">
+              <option value="">All types</option>
+              <option value="image">Images</option>
+              <option value="video">Videos</option>
+              <option value="document">Documents</option>
+              <option value="audio">Audio</option>
+              <option value="archive">Archives</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <div class="view-toggle">
+              <button data-view="list" class="active" onclick="setView('list')" aria-label="List view">☰</button>
+              <button data-view="grid" onclick="setView('grid')" aria-label="Grid view">⊞</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="selection-bar" id="selectionBar">
+          <span class="sel-count">0 selected</span>
+          <button class="btn btn-sm btn-secondary" onclick="downloadSelected()">Download</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSelected()">Delete</button>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-icon">📤</div>
+          <p><strong>Drag &amp; drop files here</strong></p>
+          <p class="text-sm text-muted">or</p>
+          <button class="btn btn-secondary btn-sm mt-2" onclick="openFilePicker(state.folderId)">Choose Files</button>
+        </div>
+
+        <div id="fileContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/upload.js"></script>
+  <script src="/js/files.js"></script>
+  <script>
+    document.getElementById('app').insertAdjacentHTML('afterbegin', sidebarHTML());
+
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      state.category = params.get('category') || null;
+      state.search = params.get('search') || '';
+      if (params.get('folderId')) state.folderId = params.get('folderId');
+
+      let page = 'files';
+      if (state.category === 'image') page = 'images';
+      else if (state.category === 'video') page = 'videos';
+      else if (state.category === 'document') page = 'documents';
+      else if (state.category === 'audio') page = 'audio';
+
+      await initShell(page);
+
+      if (state.category) {
+        const titles = { image: 'Images', video: 'Videos', document: 'Documents', audio: 'Audio' };
+        document.getElementById('pageTitle').textContent = titles[state.category] || 'My Files';
+        document.getElementById('filterSelect').value = state.category;
+      }
+      if (state.search) {
+        document.getElementById('searchInput').value = state.search;
+        document.getElementById('pageTitle').textContent = 'Search: ' + state.search;
+      }
+
+      // View toggle initial
+      document.querySelectorAll('.view-toggle button').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === state.view);
+      });
+
+      document.getElementById('sortSelect').addEventListener('change', (e) => {
+        state.sort = e.target.value;
+        loadFiles();
+      });
+      document.getElementById('filterSelect').addEventListener('change', (e) => {
+        state.category = e.target.value || null;
+        state.page = 1;
+        loadFiles();
+      });
+
+      let searchTimer;
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          state.search = e.target.value.trim();
+          state.page = 1;
+          loadFiles();
+        }, 350);
+      });
+
+      setupDropzone(document.getElementById('dropzone'), () => state.folderId);
+      window.onUploadComplete = () => loadFiles();
+
+      loadFiles();
+    })();
+  </script>
+</body>
+</html>
