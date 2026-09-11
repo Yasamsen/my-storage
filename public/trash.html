@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trash – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="app-layout" id="app">
+    <div class="main-content">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+        <div class="topbar-search">
+          <span class="search-icon">🔎</span>
+          <input type="search" placeholder="Search trash..." id="searchInput" />
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-icon" id="themeToggle" aria-label="Theme">🌙</button>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Trash</h1>
+            <p class="page-subtitle">Deleted files can be restored or permanently removed</p>
+          </div>
+        </div>
+
+        <div id="trashContainer">
+          <div class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script>
+    document.getElementById('app').insertAdjacentHTML('afterbegin', sidebarHTML());
+
+    async function loadTrash() {
+      const container = document.getElementById('trashContainer');
+      try {
+        const res = await API.get('/api/files?trash=true&limit=100');
+        const files = res.data.files || [];
+        if (!files.length) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗑️</div><h3>Trash is empty</h3><p>Deleted files will appear here.</p></div>';
+          return;
+        }
+        container.innerHTML = `
+          <table class="file-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Deleted</th>
+                <th style="width:200px">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${files.map(f => `
+                <tr>
+                  <td><div class="file-name-cell">
+                    <div class="file-icon">${categoryIcon(f.category, f.extension)}</div>
+                    <span class="file-name">${escapeHtml(f.name)}</span>
+                  </div></td>
+                  <td class="text-secondary">${formatBytes(f.size)}</td>
+                  <td class="text-secondary">${formatDate(f.deletedAt)}</td>
+                  <td>
+                    <button class="btn btn-sm btn-secondary" onclick="restoreFile('${f.id}')">Restore</button>
+                    <button class="btn btn-sm btn-danger" onclick="permanentDelete('${f.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`;
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state"><h3>Failed to load trash</h3><p>' + escapeHtml(err.message) + '</p></div>';
+      }
+    }
+
+    async function restoreFile(id) {
+      try {
+        await API.post('/api/files/' + id + '/restore');
+        showToast('File restored', 'success');
+        loadTrash();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function permanentDelete(id) {
+      if (!confirm('Permanently delete this file? This cannot be undone.')) return;
+      try {
+        await API.delete('/api/files/' + id + '/permanent');
+        showToast('File permanently deleted', 'success');
+        loadTrash();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    (async () => {
+      await initShell('trash');
+      loadTrash();
+    })();
+  </script>
+</body>
+</html>
