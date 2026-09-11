@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview – MyStorage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/responsive.css" />
+</head>
+<body>
+  <div class="preview-overlay open" id="preview">
+    <div class="preview-toolbar">
+      <button onclick="history.back()" aria-label="Close">✕</button>
+      <span class="filename" id="fileName">Loading...</span>
+      <button id="btnDownload">⬇️ Download</button>
+      <button id="btnShare">🔗 Share</button>
+    </div>
+    <div class="preview-body" id="previewBody">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) {
+        document.getElementById('previewBody').innerHTML =
+          '<div class="preview-unsupported"><h3>File not found</h3></div>';
+        return;
+      }
+
+      let file;
+      try {
+        const res = await API.get('/api/files/' + id);
+        file = res.data;
+      } catch (err) {
+        document.getElementById('previewBody').innerHTML =
+          '<div class="preview-unsupported"><h3>File not found</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        return;
+      }
+
+      document.getElementById('fileName').textContent = file.name;
+      document.title = file.name + ' – MyStorage';
+
+      document.getElementById('btnDownload').addEventListener('click', async () => {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/files/' + id + '/download', {
+          credentials: 'include',
+          headers: token ? { Authorization: 'Bearer ' + token } : {}
+        });
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      document.getElementById('btnShare').addEventListener('click', async () => {
+        try {
+          const res = await API.post('/api/share/' + id, { permission: 'download', expiresIn: 'never' });
+          await navigator.clipboard.writeText(res.data.url).catch(() => {});
+          showToast('Share link copied', 'success');
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+
+      const streamUrl = '/api/files/' + id + '/stream';
+      const body = document.getElementById('previewBody');
+      const cat = file.category;
+      const mime = file.mimeType || '';
+
+      if (cat === 'image' || mime.startsWith('image/')) {
+        body.innerHTML = '<img src="' + streamUrl + '" alt="' + escapeHtml(file.name) + '" />';
+      } else if (cat === 'video' || mime.startsWith('video/')) {
+        body.innerHTML = '<video controls autoplay src="' + streamUrl + '"></video>';
+      } else if (cat === 'audio' || mime.startsWith('audio/')) {
+        body.innerHTML = `
+          <div style="text-align:center;color:#fff">
+            <div style="font-size:4rem;margin-bottom:1rem">🎵</div>
+            <h3>${escapeHtml(file.name)}</h3>
+            <p style="opacity:.7;margin:0.5rem 0 1.5rem">${formatBytes(file.size)}</p>
+            <audio controls autoplay src="${streamUrl}" style="width:100%;max-width:400px"></audio>
+          </div>`;
+      } else if (mime === 'application/pdf' || file.extension === 'pdf') {
+        body.innerHTML = '<iframe src="' + streamUrl + '" style="width:100%;height:calc(100vh - 80px);border:none;background:#fff" title="PDF"></iframe>';
+      } else if (
+        mime.startsWith('text/') ||
+        ['txt', 'json', 'md', 'csv', 'log', 'js', 'css', 'html', 'xml'].includes(file.extension)
+      ) {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(streamUrl, {
+            credentials: 'include',
+            headers: token ? { Authorization: 'Bearer ' + token } : {}
+          });
+          let text = await res.text();
+          if (file.extension === 'json') {
+            try { text = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+          }
+          body.innerHTML = '<pre>' + escapeHtml(text.slice(0, 500000)) + '</pre>';
+        } catch {
+          body.innerHTML = '<div class="preview-unsupported"><h3>Could not load text</h3></div>';
+        }
+      } else if (cat === 'archive') {
+        body.innerHTML = `
+          <div class="preview-unsupported">
+            <div style="font-size:3rem;margin-bottom:1rem">📦</div>
+            <h3>Archive File</h3>
+            <p>${escapeHtml(file.name)}</p>
+            <p style="opacity:.7">${formatBytes(file.size)} · ${(file.extension || '').toUpperCase()}</p>
+            <button class="btn btn-primary mt-4" onclick="document.getElementById('btnDownload').click()">Download</button>
+          </div>`;
+      } else {
+        body.innerHTML = `
+          <div class="preview-unsupported">
+            <h3>Preview unavailable</h3>
+            <p>This file type cannot be previewed.</p>
+            <p style="opacity:.7;margin:0.5rem 0">${escapeHtml(file.name)} · ${formatBytes(file.size)}</p>
+            <button class="btn btn-primary mt-4" onclick="document.getElementById('btnDownload').click()">Download File</button>
+          </div>`;
+      }
+    })();
+  </script>
+</body>
+</html>
